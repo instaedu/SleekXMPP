@@ -1568,14 +1568,14 @@ class StanzaBase(ElementBase):
         log.exception('Error handling {%s}%s stanza', self.namespace,
                                                       self.name)
 
-    def send(self, now=False):
+    def send(self, now=False, extra=None):
         """Queue the stanza to be sent on the XML stream.
 
         :param bool now: Indicates if the queue should be skipped and the
                          stanza sent immediately. Useful for stream
                          initialization. Defaults to ``False``.
         """
-        self.stream.send(self, now=now)
+        self.stream.send(self, now=now, extra=extra)
 
     def __copy__(self):
         """Return a copy of the stanza object that does not share the

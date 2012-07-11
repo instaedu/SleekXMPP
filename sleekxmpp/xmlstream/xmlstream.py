@@ -1150,7 +1150,7 @@ class XMLStream(object):
         """
         return xml
 
-    def send(self, data, mask=None, timeout=None, now=False, use_filters=True):
+    def send(self, data, mask=None, timeout=None, now=False, use_filters=True, extra=None):
         """A wrapper for :meth:`send_raw()` for sending stanza objects.
 
         May optionally block until an expected response is received.
@@ -1172,6 +1172,8 @@ class XMLStream(object):
                                  applied to the given stanza data. Disabling
                                  filters is useful when resending stanzas.
                                  Defaults to ``True``.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         if timeout is None:
             timeout = self.response_timeout
@@ -1199,13 +1201,13 @@ class XMLStream(object):
                         if data is None:
                             return
                 str_data = str(data)
-                self.send_raw(str_data, now)
+                self.send_raw(str_data, now, extra=extra)
         else:
-            self.send_raw(data, now)
+            self.send_raw(data, now, extra=extra)
         if mask is not None:
             return wait_for.wait(timeout)
 
-    def send_xml(self, data, mask=None, timeout=None, now=False):
+    def send_xml(self, data, mask=None, timeout=None, now=False, extra=None):
         """Send an XML object on the stream, and optionally wait
         for a response.
 
@@ -1222,12 +1224,14 @@ class XMLStream(object):
                         sending the stanza immediately. Useful mainly
                         for stream initialization stanzas.
                         Defaults to ``False``.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         if timeout is None:
             timeout = self.response_timeout
-        return self.send(tostring(data), mask, timeout, now)
+        return self.send(tostring(data), mask, timeout, now, extra=extra)
 
-    def send_raw(self, data, now=False, reconnect=None):
+    def send_raw(self, data, now=False, reconnect=None, extra=None):
         """Send raw data across the stream.
 
         :param string data: Any string value.
@@ -1235,6 +1239,8 @@ class XMLStream(object):
                                restarted if there is an error sending
                                the stanza. Used mainly for testing.
                                Defaults to :attr:`auto_reconnect`.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         if now:
             log.debug("SEND (IMMED): %s", data)
@@ -1254,6 +1260,8 @@ class XMLStream(object):
                                 log.debug('SSL error: max retries reached')
                                 self.exception(serr)
                                 log.warning("Failed to send %s", data)
+                                self.event(
+                                    'send_failure', (data, extra), direct=True)
                                 if reconnect is None:
                                     reconnect = self.auto_reconnect
                                 if not self.stop.is_set():
@@ -1268,12 +1276,15 @@ class XMLStream(object):
             except (Socket.error, ssl.SSLError) as serr:
                 self.event('socket_error', serr, direct=True)
                 log.warning("Failed to send %s", data)
+                self.event('send_failure', (data, extra), direct=True)
                 if reconnect is None:
                     reconnect = self.auto_reconnect
                 if not self.stop.is_set():
                     self.disconnect(reconnect, send_close=False)
+            else:
+                self.event('send_success', (data, extra), direct=True)
         else:
-            self.send_queue.put(data)
+            self.send_queue.put((data, extra))
         return True
 
     def _start_thread(self, name, target, track=True):
@@ -1647,10 +1658,11 @@ class XMLStream(object):
                     self.session_started_event.wait(timeout=0.1)
                 if self.__failed_send_stanza is not None:
                     data = self.__failed_send_stanza
+                    extra = None
                     self.__failed_send_stanza = None
                 else:
                     try:
-                        data = self.send_queue.get(True, 1)
+                        data, extra = self.send_queue.get(True, 1)
                     except queue.Empty:
                         continue
                 log.debug("SEND: %s", data)
@@ -1671,6 +1683,8 @@ class XMLStream(object):
                                     log.debug('SSL error: max retries reached')
                                     self.exception(serr)
                                     log.warning("Failed to send %s", data)
+                                    self.event(
+                                        'send_failure', (data, extra), direct=True)
                                     if not self.stop.is_set():
                                         self.disconnect(self.auto_reconnect,
                                                         send_close=False)
@@ -1684,11 +1698,15 @@ class XMLStream(object):
                 except (Socket.error, ssl.SSLError) as serr:
                     self.event('socket_error', serr, direct=True)
                     log.warning("Failed to send %s", data)
+                    self.event('send_failure', (data, extra), direct=True)
                     if not self.stop.is_set():
                         self.__failed_send_stanza = data
                         self._end_thread('send')
                         self.disconnect(self.auto_reconnect, send_close=False)
                         return
+                else:
+                    log.debug('send_success event about to be called')
+                    self.event('send_success', (data, extra), direct=True)
         except Exception as ex:
             log.exception('Unexpected error in send thread: %s', ex)
             self.exception(ex)
