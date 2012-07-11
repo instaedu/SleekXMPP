@@ -504,7 +504,7 @@ class BaseXMPP(XMLStream):
         return presence
 
     def send_message(self, mto, mbody, msubject=None, mtype=None,
-                     mhtml=None, mfrom=None, mnick=None):
+                     mhtml=None, mfrom=None, mnick=None, extra=None):
         """
         Create, initialize, and send a new
         :class:`~sleekxmpp.stanza.message.Message` stanza.
@@ -519,12 +519,15 @@ class BaseXMPP(XMLStream):
                       be aware that some servers require that the full JID
                       of the sender be used.
         :param mnick: Optional nickname of the sender.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         self.make_message(mto, mbody, msubject, mtype,
-                          mhtml, mfrom, mnick).send()
+                          mhtml, mfrom, mnick).send(extra=extra)
 
     def send_presence(self, pshow=None, pstatus=None, ppriority=None,
-                      pto=None, pfrom=None, ptype=None, pnick=None):
+                      pto=None, pfrom=None, ptype=None, pnick=None,
+                      extra=None):
         """
         Create, initialize, and send a new
         :class:`~sleekxmpp.stanza.presence.Presence` stanza.
@@ -536,12 +539,15 @@ class BaseXMPP(XMLStream):
         :param ptype: The type of presence, such as ``'subscribe'``.
         :param pfrom: The sender of the presence.
         :param pnick: Optional nickname of the presence's sender.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         self.make_presence(pshow, pstatus, ppriority, pto,
-                           ptype, pfrom, pnick).send()
+                           ptype, pfrom, pnick).send(extra=extra)
 
     def send_presence_subscription(self, pto, pfrom=None,
-                                   ptype='subscribe', pnick=None):
+                                   ptype='subscribe', pnick=None,
+                                   extra=None):
         """
         Create, initialize, and send a new
         :class:`~sleekxmpp.stanza.presence.Presence` stanza of
@@ -551,11 +557,13 @@ class BaseXMPP(XMLStream):
         :param pfrom: The sender of the presence.
         :param ptype: The type of presence, such as ``'subscribe'``.
         :param pnick: Optional nickname of the presence's sender.
+        :param object extra: Extra data to be sent to the callback function
+                             for send_success and send_failure messages.
         """
         self.make_presence(ptype=ptype,
                            pfrom=pfrom,
                            pto=JID(pto).bare,
-                           pnick=pnick).send()
+                           pnick=pnick).send(extra=extra)
 
     @property
     def jid(self):
