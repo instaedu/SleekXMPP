@@ -27,27 +27,19 @@ else:
     raw_input = input
 
 
-class EchoBot(sleekxmpp.ClientXMPP):
+class AdminCommands(sleekxmpp.ClientXMPP):
 
     """
-    A simple SleekXMPP bot that will echo messages it
-    receives, along with a short thank you message.
+    A simple SleekXMPP bot that uses admin commands to
+    add a new user to a server.
     """
 
-    def __init__(self, jid, password):
+    def __init__(self, jid, password, command):
         sleekxmpp.ClientXMPP.__init__(self, jid, password)
 
-        # The session_start event will be triggered when
-        # the bot establishes its connection with the server
-        # and the XML streams are ready for use. We want to
-        # listen for this event so that we we can initialize
-        # our roster.
-        self.add_event_handler("session_start", self.start)
+        self.command = command
 
-        # The message event is triggered whenever a message
-        # stanza is received. Be aware that that includes
-        # MUC messages and error messages.
-        self.add_event_handler("message", self.message)
+        self.add_event_handler("session_start", self.start)
 
     def start(self, event):
         """
@@ -65,20 +57,61 @@ class EchoBot(sleekxmpp.ClientXMPP):
         self.send_presence()
         self.get_roster()
 
-    def message(self, msg):
-        """
-        Process incoming message stanzas. Be aware that this also
-        includes MUC messages and error messages. It is usually
-        a good idea to check the messages's type before processing
-        or sending replies.
+        def command_success(iq, session):
+            print('Command completed')
+            if iq['command']['form']:
+                for var, field in iq['command']['form']['fields'].items():
+                    print('%s: %s' % (var, field['value']))
+            if iq['command']['notes']:
+                print('Command Notes:')
+                for note in iq['command']['notes']:
+                    print('%s: %s' % note)
+            self.disconnect()
 
-        Arguments:
-            msg -- The received message stanza. See the documentation
-                   for stanza objects and the Message stanza to see
-                   how it may be used.
-        """
-        if msg['type'] in ('chat', 'normal'):
-            msg.reply("Thanks for sending\n%(body)s" % msg).send()
+        def command_error(iq, session):
+            print('Error completing command')
+            print('%s: %s' % (iq['error']['condition'],
+                              iq['error']['text']))
+            self['xep_0050'].terminate_command(session)
+            self.disconnect()
+
+        def process_form(iq, session):
+            form = iq['command']['form']
+            answers = {}
+            for var, field in form['fields'].items():
+                if var != 'FORM_TYPE':
+                    if field['type'] == 'boolean':
+                        answers[var] = raw_input('%s (y/n): ' % field['label'])
+                        if answers[var].lower() in ('1', 'true', 'y', 'yes'):
+                            answers[var] = '1'
+                        else:
+                            answers[var] = '0'
+                    else:
+                        answers[var] = raw_input('%s: ' % field['label'])
+                else:
+                    answers['FORM_TYPE'] = field['value']
+            form['type'] = 'submit'
+            form['values'] = answers
+
+            session['next'] = command_success
+            session['payload'] = form
+
+            self['xep_0050'].complete_command(session)
+
+        session = {'next': process_form,
+                   'error': command_error}
+
+        command = self.command.replace('-', '_')
+        handler = getattr(self['xep_0133'], command, None)
+
+        if handler:
+            handler(session={
+                'next': process_form,
+                'error': command_error
+            })
+        else:
+            print('Invalid command name: %s' % self.command)
+            self.disconnect()
 
 
 if __name__ == '__main__':
@@ -101,6 +134,8 @@ if __name__ == '__main__':
                     help="JID to use")
     optp.add_option("-p", "--password", dest="password",
                     help="password to use")
+    optp.add_option("-c", "--command", dest="command",
+                    help="admin command to use")
 
     opts, args = optp.parse_args()
 
@@ -112,28 +147,14 @@ if __name__ == '__main__':
         opts.jid = raw_input("Username: ")
     if opts.password is None:
         opts.password = getpass.getpass("Password: ")
+    if opts.command is None:
+        opts.command = raw_input("Admin command: ")
 
-    # Setup the EchoBot and register plugins. Note that while plugins may
+    # Setup the CommandBot and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = EchoBot(opts.jid, opts.password)
-    xmpp.register_plugin('xep_0030') # Service Discovery
-    xmpp.register_plugin('xep_0004') # Data Forms
-    xmpp.register_plugin('xep_0060') # PubSub
-    xmpp.register_plugin('xep_0199') # XMPP Ping
-
-    # If you are connecting to Facebook and wish to use the
-    # X-FACEBOOK-PLATFORM authentication mechanism, you will need
-    # your API key and an access token. Then you'll set:
-    # xmpp.credentials['api_key'] = 'THE_API_KEY'
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
-
-    # If you are connecting to MSN, then you will need an
-    # access token, and it does not matter what JID you
-    # specify other than that the domain is 'messenger.live.com',
-    # so '_@messenger.live.com' will work. You can specify
-    # the access token as so:
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
+    xmpp = AdminCommands(opts.jid, opts.password, opts.command)
+    xmpp.register_plugin('xep_0133') # Service Administration
 
     # If you are working with an OpenFire server, you may need
     # to adjust the SSL version used:

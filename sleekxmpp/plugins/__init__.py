@@ -42,11 +42,13 @@ __all__ = [
     'xep_0115',  # Entity Capabilities
     'xep_0118',  # User Tune
     'xep_0128',  # Extended Service Discovery
+    'xep_0133',  # Service Administration
     'xep_0153',  # vCard-Based Avatars
     'xep_0163',  # Personal Eventing Protocol
     'xep_0172',  # User Nickname
     'xep_0184',  # Message Receipts
     'xep_0186',  # Invisible Command
+    'xep_0191',  # Blocking Command
     'xep_0198',  # Stream Management
     'xep_0199',  # Ping
     'xep_0202',  # Entity Time
