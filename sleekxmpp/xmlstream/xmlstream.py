@@ -263,6 +263,7 @@ class XMLStream(object):
         #: An :class:`~threading.Event` to signal that the application
         #: is stopping, and that all threads should shutdown.
         self.stop = threading.Event()
+        self.aborting = threading.Event()
 
         #: An :class:`~threading.Event` to signal receiving a closing
         #: stream tag from the server.
@@ -452,7 +453,8 @@ class XMLStream(object):
 
     def _connect(self, reattempt=True):
         self.scheduler.remove('Session timeout check')
-        self.stop.clear()
+        if not self.aborting.is_set():
+            self.stop.clear()
 
         if self.reconnect_delay is None or not reattempt:
             delay = 1.0
@@ -729,6 +731,7 @@ class XMLStream(object):
     def abort(self):
         self.session_started_event.clear()
         self.stop.set()
+        self.aborting.set()
         if self._disconnect_wait_for_threads:
             self._wait_for_threads()
         try:
