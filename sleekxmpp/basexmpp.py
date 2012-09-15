@@ -68,7 +68,12 @@ class BaseXMPP(XMLStream):
         #: An identifier for the stream as given by the server.
         self.stream_id = None
 
-        #: The JabberID (JID) used by this connection.
+        #: The JabberID (JID) requested for this connection.
+        self.requested_jid = JID(jid)
+
+        #: The JabberID (JID) used by this connection,
+        #: as set after session binding. This may even be a
+        #: different bare JID than what was requested.
         self.boundjid = JID(jid)
 
         self._expected_server_name = self.boundjid.host
@@ -221,13 +226,6 @@ class BaseXMPP(XMLStream):
         - The send queue processor
         - The scheduler
         """
-        if 'xep_0115' in self.plugin:
-            name = 'xep_0115'
-            if not hasattr(self.plugin[name], 'post_inited'):
-                if hasattr(self.plugin[name], 'post_init'):
-                    self.plugin[name].post_init()
-                self.plugin[name].post_inited = True
-
         for name in self.plugin:
             if not hasattr(self.plugin[name], 'post_inited'):
                 if hasattr(self.plugin[name], 'post_init'):
