@@ -31,12 +31,16 @@ class FileSocket(_fileobject):
             return None
         data = self._sock.recv(size)
 
-        # this makes me feel dirty... I hate iTeleportService                                                                                                                                                                                                                                                                                                               
+        # this makes me feel dirty... I hate iTeleportService
         if data.find("xmlns:server"):
             data = data.replace(
                 '<xmlns:server xmlns="http://www.w3.org/2000/xmlns/"/>', '')
             data = data.replace(
                 '<xmlns:server xmlns="http://www.w3.org/2000/xmlns/" />', '')
+            data = data.replace(
+                '<xmlns:client xmlns="http://www.w3.org/2000/xmlns/"/>', '')
+            data = data.replace(
+                '<xmlns:client xmlns="http://www.w3.org/2000/xmlns/" />', '')
 
         if data is not None:
             return data
