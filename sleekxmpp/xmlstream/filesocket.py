@@ -32,11 +32,12 @@ class FileSocket(_fileobject):
         data = self._sock.recv(size)
 
         # this makes me feel dirty... I hate iTeleportService
-        if data.find("xmlns:server"):
+        if data.find("xmlns:server") > -1:
             data = data.replace(
                 '<xmlns:server xmlns="http://www.w3.org/2000/xmlns/"/>', '')
             data = data.replace(
                 '<xmlns:server xmlns="http://www.w3.org/2000/xmlns/" />', '')
+        elif data.find("xmlns:client") > -1:
             data = data.replace(
                 '<xmlns:client xmlns="http://www.w3.org/2000/xmlns/"/>', '')
             data = data.replace(
